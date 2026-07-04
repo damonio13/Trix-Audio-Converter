@@ -100,7 +100,7 @@ jobs:
       with:
         name: trix-${{ matrix.target }}
         path: |
-          src-rs/target/${{ matrix.target }}/release/trix${{ ext }}
+          src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }}
           assets/icons/trix_logo_sunset.ico
           run.bat
 
