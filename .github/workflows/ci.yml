@@ -1,0 +1,107 @@
+# Trix Audio Converter — CI/CD Pipeline
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg libasound2-dev
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install ffmpeg
+    
+    - name: Run tests
+      run: cargo test --manifest-path src-rs/Cargo.toml --verbose
+    
+    - name: Run clippy
+      run: cargo clippy --manifest-path src-rs/Cargo.toml -- -D warnings
+    
+    - name: Run cargo audit
+      run: |
+        cargo install cargo-audit --locked
+        cargo audit --manifest-path src-rs/Cargo.toml
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            ext: ""
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            ext: ".exe"
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            ext: ""
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    
+    - name: Cache cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+    
+    - name: Build release
+      run: cargo build --release --manifest-path src-rs/Cargo.toml --target ${{ matrix.target }}
+    
+    - name: Create artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: trix-${{ matrix.target }}
+        path: |
+          src-rs/target/${{ matrix.target }}/release/trix${{ ext }}
+          assets/icons/trix_logo_sunset.ico
+          run.bat
+
+

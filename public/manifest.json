@@ -1,0 +1,35 @@
+{
+  "name": "Trix Audio Converter",
+  "short_name": "Trix Audio",
+  "description": "Conversor de áudio em lote de alta performance com suporte a 100+ formatos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050409",
+  "theme_color": "#a855f7",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/trix_logo_sunset.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["utilities", "music", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Adicionar Arquivos",
+      "short_name": "Adicionar",
+      "description": "Adicionar arquivos para conversão",
+      "url": "/?action=add-files",
+      "icons": [{ "src": "/trix_logo_sunset.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Limpar Fila",
+      "short_name": "Limpar",
+      "description": "Limpar a fila de conversão",
+      "url": "/?action=clear-queue",
+      "icons": [{ "src": "/trix_logo_sunset.png", "sizes": "192x192" }]
+    }
+  ]
+}
