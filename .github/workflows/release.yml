@@ -10,6 +10,9 @@ on:
 permissions:
   contents: write
 
+env:
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+
 jobs:
   build-release:
     name: Build Release (${{ matrix.target }})
