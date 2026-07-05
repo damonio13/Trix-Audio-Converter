@@ -249,20 +249,74 @@ mod tests {
     }
 }
 
+fn ensure_binaries() {
+    let exe_dir = portable::Portable::exe_dir();
+    let bin_dir = if portable::Portable::is_portable() {
+        exe_dir.join("data").join("bin")
+    } else {
+        std::env::temp_dir().join("trix_bin")
+    };
+    let _ = std::fs::create_dir_all(&bin_dir);
+
+    let ffmpeg_path = if cfg!(target_os = "windows") {
+        bin_dir.join("ffmpeg.exe")
+    } else {
+        bin_dir.join("ffmpeg")
+    };
+    
+    let ffprobe_path = if cfg!(target_os = "windows") {
+        bin_dir.join("ffprobe.exe")
+    } else {
+        bin_dir.join("ffprobe")
+    };
+
+    // Check if they already exist and have size > 0
+    let ffmpeg_exists = ffmpeg_path.exists() && std::fs::metadata(&ffmpeg_path).map(|m| m.len()).unwrap_or(0) > 1000;
+    let ffprobe_exists = ffprobe_path.exists() && std::fs::metadata(&ffprobe_path).map(|m| m.len()).unwrap_or(0) > 1000;
+
+    // Embed bytes
+    let ffmpeg_bytes = include_bytes!("../bin/ffmpeg");
+    let ffprobe_bytes = include_bytes!("../bin/ffprobe");
+
+    // Only extract if they are the real binaries (not placeholders, which are small)
+    if ffmpeg_bytes.len() > 1000 {
+        if !ffmpeg_exists {
+            if let Ok(_) = std::fs::write(&ffmpeg_path, ffmpeg_bytes) {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(&ffmpeg_path, std::fs::Permissions::from_mode(0o755));
+                }
+            }
+        }
+    }
+
+    if ffprobe_bytes.len() > 1000 {
+        if !ffprobe_exists {
+            if let Ok(_) = std::fs::write(&ffprobe_path, ffprobe_bytes) {
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    let _ = std::fs::set_permissions(&ffprobe_path, std::fs::Permissions::from_mode(0o755));
+                }
+            }
+        }
+    }
+
+    // Now, prepend bin_dir and exe_dir to PATH so they find them!
+    if let Ok(path_var) = std::env::var("PATH") {
+        let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+        let new_path = format!("{}{}{}{}{}", bin_dir.display(), separator, exe_dir.display(), separator, path_var);
+        std::env::set_var("PATH", new_path);
+    }
+}
+
 fn main() {
     // Install panic hook FIRST to capture any crash
     crash_logger::install();
 
-    // Prepend executable directory to PATH so local ffmpeg/ffprobe are resolved first
-    if let Ok(exe_path) = std::env::current_exe() {
-        if let Some(exe_dir) = exe_path.parent() {
-            if let Ok(path_var) = std::env::var("PATH") {
-                let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
-                let new_path = format!("{}{}{}", exe_dir.display(), separator, path_var);
-                std::env::set_var("PATH", new_path);
-            }
-        }
-    }
+    // Setup and ensure ffmpeg/ffprobe binaries are extracted and available
+    ensure_binaries();
 
     let args: Vec<String> = std::env::args().collect();
 

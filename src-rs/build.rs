@@ -13,6 +13,20 @@ fn main() {
         let _ = std::fs::write(dist_dir.join("index.html"), "<html><body>Trix Frontend placeholder</body></html>");
     }
 
+    // Ensure bin directory and placeholder files exist for compile-time embedding
+    let bin_dir = std::path::Path::new("bin");
+    if !bin_dir.exists() {
+        let _ = std::fs::create_dir_all(&bin_dir);
+    }
+    let ffmpeg_placeholder = bin_dir.join("ffmpeg");
+    if !ffmpeg_placeholder.exists() {
+        let _ = std::fs::write(&ffmpeg_placeholder, "dummy");
+    }
+    let ffprobe_placeholder = bin_dir.join("ffprobe");
+    if !ffprobe_placeholder.exists() {
+        let _ = std::fs::write(&ffprobe_placeholder, "dummy");
+    }
+
     #[cfg(target_os = "windows")]
     {
         let mut res = winres::WindowsResource::new();

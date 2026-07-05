@@ -48,32 +48,28 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: trix-portable-windows-x86_64.zip
+            artifact_name: trix-portable-windows-x86_64.exe
             ext: ".exe"
             ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-win-64.zip"
             ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-win-64.zip"
-            archive_cmd: "7z a trix-portable-windows-x86_64.zip trix-portable-windows-x86_64"
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: trix-portable-linux-x86_64.tar.gz
+            artifact_name: trix-portable-linux-x86_64
             ext: ""
             ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-linux-64.zip"
             ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-linux-64.zip"
-            archive_cmd: "tar -czf trix-portable-linux-x86_64.tar.gz trix-portable-linux-x86_64"
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: trix-portable-macos-x86_64.zip
+            artifact_name: trix-portable-macos-x86_64
             ext: ""
             ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-osx-64.zip"
             ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-osx-64.zip"
-            archive_cmd: "zip -r trix-portable-macos-x86_64.zip trix-portable-macos-x86_64"
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: trix-portable-macos-aarch64.zip
+            artifact_name: trix-portable-macos-aarch64
             ext: ""
             ffmpeg_url: "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip"
             ffprobe_url: "https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffprobe.zip"
-            archive_cmd: "zip -r trix-portable-macos-aarch64.zip trix-portable-macos-aarch64"
 
     steps:
       - name: Checkout repository
@@ -111,44 +107,48 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg libasound2-dev libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev
 
+      # Download static ffmpeg and ffprobe and place them in the src-rs/bin/ folder
+      # so that they are embedded directly in the binary at compile time.
+      - name: Download and extract static ffmpeg/ffprobe for embedding
+        run: |
+          mkdir -p src-rs/bin
+          
+          curl -L -o ffmpeg_dl ${{ matrix.ffmpeg_url }}
+          curl -L -o ffprobe_dl ${{ matrix.ffprobe_url }}
+          
+          if [[ "${{ matrix.ffmpeg_url }}" == *.zip ]] || [[ "${{ matrix.target }}" == *darwin* ]]; then
+            unzip -o ffmpeg_dl -d src-rs/bin/
+            unzip -o ffprobe_dl -d src-rs/bin/
+          elif [[ "${{ matrix.ffmpeg_url }}" == *.tar.xz ]]; then
+            tar -xf ffmpeg_dl -C src-rs/bin/
+            tar -xf ffprobe_dl -C src-rs/bin/
+          fi
+          
+          rm -f ffmpeg_dl ffprobe_dl
+          
+          # Remove windows file extension if present so compile inclusion is unified
+          if [ -f src-rs/bin/ffmpeg.exe ]; then
+            mv src-rs/bin/ffmpeg.exe src-rs/bin/ffmpeg
+          fi
+          if [ -f src-rs/bin/ffprobe.exe ]; then
+            mv src-rs/bin/ffprobe.exe src-rs/bin/ffprobe
+          fi
+          
+          ls -la src-rs/bin/
+        shell: bash
+
       - name: Build Rust binary
         run: cargo build --release --manifest-path src-rs/Cargo.toml --target ${{ matrix.target }}
 
-      # Download static ffmpeg and ffprobe and package the folder
-      - name: Download ffmpeg/ffprobe and Package
+      # Package the compiled binary directly
+      - name: Prepare standalone binary
         run: |
-          # 1. Create a clean folder for the portable package
-          FOLDER_NAME="${{ matrix.artifact_name }}"
-          FOLDER_NAME="${FOLDER_NAME%.zip}"
-          FOLDER_NAME="${FOLDER_NAME%.tar.gz}"
-          mkdir -p $FOLDER_NAME
-
-          # 2. Copy the compiled trix binary
-          cp src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }} $FOLDER_NAME/
-
-          # 3. Download and extract ffmpeg/ffprobe
-          curl -L -o ffmpeg_dl ${{ matrix.ffmpeg_url }}
-          curl -L -o ffprobe_dl ${{ matrix.ffprobe_url }}
-
-          # Check file type/extension to extract properly
-          if [[ "${{ matrix.ffmpeg_url }}" == *.zip ]] || [[ "${{ matrix.target }}" == *darwin* ]]; then
-            unzip -o ffmpeg_dl -d $FOLDER_NAME/
-            unzip -o ffprobe_dl -d $FOLDER_NAME/
-          elif [[ "${{ matrix.ffmpeg_url }}" == *.tar.xz ]]; then
-            tar -xf ffmpeg_dl -C $FOLDER_NAME/
-            tar -xf ffprobe_dl -C $FOLDER_NAME/
-          fi
-
-          # Clean up download files
-          rm -f ffmpeg_dl ffprobe_dl
-
+          cp src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }} ${{ matrix.artifact_name }}
+          
           # Make sure binaries are executable on Unix systems
           if [ "${{ matrix.ext }}" = "" ]; then
-            chmod +x $FOLDER_NAME/trix $FOLDER_NAME/ffmpeg $FOLDER_NAME/ffprobe
+            chmod +x ${{ matrix.artifact_name }}
           fi
-
-          # 4. Archive the folder using the matrix command
-          ${{ matrix.archive_cmd }}
         shell: bash
 
       - name: Upload to GitHub Release
