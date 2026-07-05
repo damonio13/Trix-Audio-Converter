@@ -97,14 +97,6 @@ jobs:
     
     - name: Build release
       run: cargo build --release --manifest-path src-rs/Cargo.toml --target ${{ matrix.target }}
-    
-    - name: Create artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: trix-${{ matrix.target }}
-        path: |
-          src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }}
-          assets/icons/trix_logo_sunset.ico
-          run.bat
+
 
 

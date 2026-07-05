@@ -524,7 +524,7 @@ fn main() {
 /// Handles RGB, RGBA, Grayscale, and GrayscaleAlpha PNG colour types.
 /// Returns `None` if the PNG cannot be decoded or if tao rejects the pixel data.
 fn load_window_icon() -> Option<tao::window::Icon> {
-    let icon_bytes = include_bytes!("..\\..\\assets\\icons\\trix_logo_sunset_icon.png");
+    let icon_bytes = include_bytes!("../../assets/icons/trix_logo_sunset_icon.png");
     let mut decoder = png::Decoder::new(std::io::Cursor::new(icon_bytes));
     decoder.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
     let mut reader = decoder.read_info().ok()?;
