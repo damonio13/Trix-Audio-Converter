@@ -81,21 +81,21 @@ jobs:
       - name: Package Windows Portable
         if: matrix.os == 'windows-latest'
         run: |
-          mkdir trix-portable-windows-x86_64
+          mkdir -p trix-portable-windows-x86_64
           cp src-rs/target/x86_64-pc-windows-msvc/release/trix.exe trix-portable-windows-x86_64/
           cp -r dist trix-portable-windows-x86_64/
           echo "portable" > trix-portable-windows-x86_64/portable.txt
-          Compress-Archive -Path trix-portable-windows-x86_64/* -DestinationPath ${{ matrix.artifact_name }}
-        shell: pwsh
+          7z a ${{ matrix.artifact_name }} trix-portable-windows-x86_64
+        shell: bash
 
       - name: Package Linux Portable
         if: matrix.os == 'ubuntu-latest'
         run: |
-          mkdir trix-portable-linux-x86_64
+          mkdir -p trix-portable-linux-x86_64
           cp src-rs/target/x86_64-unknown-linux-gnu/release/trix trix-portable-linux-x86_64/
           cp -r dist trix-portable-linux-x86_64/
           echo "portable" > trix-portable-linux-x86_64/portable.txt
-          tar -czf ${{ matrix.artifact_name }} -C trix-portable-linux-x86_64 .
+          tar -czf ${{ matrix.artifact_name }} trix-portable-linux-x86_64
         shell: bash
 
       - name: Package macOS Portable
