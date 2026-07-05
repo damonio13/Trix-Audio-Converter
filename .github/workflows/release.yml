@@ -48,20 +48,32 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: trix-portable-windows-x86_64.exe
+            artifact_name: trix-portable-windows-x86_64.zip
             ext: ".exe"
+            ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-win-64.zip"
+            ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-win-64.zip"
+            archive_cmd: "7z a trix-portable-windows-x86_64.zip trix-portable-windows-x86_64"
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: trix-portable-linux-x86_64
+            artifact_name: trix-portable-linux-x86_64.tar.gz
             ext: ""
+            ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-linux-64.tar.xz"
+            ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-linux-64.tar.xz"
+            archive_cmd: "tar -czf trix-portable-linux-x86_64.tar.gz trix-portable-linux-x86_64"
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: trix-portable-macos-x86_64
+            artifact_name: trix-portable-macos-x86_64.zip
             ext: ""
+            ffmpeg_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-osx-64.zip"
+            ffprobe_url: "https://github.com/ffbinaries/ffbinaries-prebuilt/releases/download/v4.4.1/ffprobe-4.4.1-osx-64.zip"
+            archive_cmd: "zip -r trix-portable-macos-x86_64.zip trix-portable-macos-x86_64"
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: trix-portable-macos-aarch64
+            artifact_name: trix-portable-macos-aarch64.zip
             ext: ""
+            ffmpeg_url: "https://evermeet.cx/ffmpeg/getrelease/arm64/zip"
+            ffprobe_url: "https://evermeet.cx/ffmpeg/getrelease/ffprobe/arm64/zip"
+            archive_cmd: "zip -r trix-portable-macos-aarch64.zip trix-portable-macos-aarch64"
 
     steps:
       - name: Checkout repository
@@ -102,10 +114,41 @@ jobs:
       - name: Build Rust binary
         run: cargo build --release --manifest-path src-rs/Cargo.toml --target ${{ matrix.target }}
 
-      # Packaging standalone binary
-      - name: Prepare standalone binary
+      # Download static ffmpeg and ffprobe and package the folder
+      - name: Download ffmpeg/ffprobe and Package
         run: |
-          cp src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }} ${{ matrix.artifact_name }}
+          # 1. Create a clean folder for the portable package
+          FOLDER_NAME="${{ matrix.artifact_name }}"
+          FOLDER_NAME="${FOLDER_NAME%.zip}"
+          FOLDER_NAME="${FOLDER_NAME%.tar.gz}"
+          mkdir -p $FOLDER_NAME
+
+          # 2. Copy the compiled trix binary
+          cp src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }} $FOLDER_NAME/
+
+          # 3. Download and extract ffmpeg/ffprobe
+          curl -L -o ffmpeg_dl ${{ matrix.ffmpeg_url }}
+          curl -L -o ffprobe_dl ${{ matrix.ffprobe_url }}
+
+          # Check file type/extension to extract properly
+          if [[ "${{ matrix.ffmpeg_url }}" == *.zip ]] || [[ "${{ matrix.target }}" == *darwin* ]]; then
+            unzip -o ffmpeg_dl -d $FOLDER_NAME/
+            unzip -o ffprobe_dl -d $FOLDER_NAME/
+          elif [[ "${{ matrix.ffmpeg_url }}" == *.tar.xz ]]; then
+            tar -xf ffmpeg_dl -C $FOLDER_NAME/
+            tar -xf ffprobe_dl -C $FOLDER_NAME/
+          fi
+
+          # Clean up download files
+          rm -f ffmpeg_dl ffprobe_dl
+
+          # Make sure binaries are executable on Unix systems
+          if [ "${{ matrix.ext }}" = "" ]; then
+            chmod +x $FOLDER_NAME/trix $FOLDER_NAME/ffmpeg $FOLDER_NAME/ffprobe
+          fi
+
+          # 4. Archive the folder using the matrix command
+          ${{ matrix.archive_cmd }}
         shell: bash
 
       - name: Upload to GitHub Release

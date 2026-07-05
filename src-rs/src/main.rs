@@ -253,6 +253,17 @@ fn main() {
     // Install panic hook FIRST to capture any crash
     crash_logger::install();
 
+    // Prepend executable directory to PATH so local ffmpeg/ffprobe are resolved first
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if let Ok(path_var) = std::env::var("PATH") {
+                let separator = if cfg!(target_os = "windows") { ";" } else { ":" };
+                let new_path = format!("{}{}{}", exe_dir.display(), separator, path_var);
+                std::env::set_var("PATH", new_path);
+            }
+        }
+    }
+
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() > 1 && args[1] != "--gui" {
