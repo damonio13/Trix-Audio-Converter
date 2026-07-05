@@ -5,6 +5,14 @@
 //! Developer: João Vitor de Melo <joaovmelo259@gmail.com>
 
 fn main() {
+    // Ensure the dist directory exists so cargo compiles successfully
+    // even if npm run build hasn't been run yet (e.g. on fresh checkout).
+    let dist_dir = std::path::Path::new("..").join("dist");
+    if !dist_dir.exists() {
+        let _ = std::fs::create_dir_all(&dist_dir);
+        let _ = std::fs::write(dist_dir.join("index.html"), "<html><body>Trix Frontend placeholder</body></html>");
+    }
+
     #[cfg(target_os = "windows")]
     {
         let mut res = winres::WindowsResource::new();

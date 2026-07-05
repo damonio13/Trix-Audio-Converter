@@ -21,7 +21,17 @@ impl Portable {
     /// Check if the app is running in portable mode
     pub fn is_portable() -> bool {
         let exe_dir = Self::exe_dir();
-        exe_dir.join("portable.txt").exists() || exe_dir.join("data").is_dir()
+        if exe_dir.join("portable.txt").exists() || exe_dir.join("data").is_dir() {
+            return true;
+        }
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(filename) = exe_path.file_name().and_then(|s| s.to_str()) {
+                if filename.to_lowercase().contains("portable") {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Get the directory where the executable is located

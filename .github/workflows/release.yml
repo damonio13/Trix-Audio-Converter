@@ -48,19 +48,19 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: trix-portable-windows-x86_64.zip
+            artifact_name: trix-portable-windows-x86_64.exe
             ext: ".exe"
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: trix-portable-linux-x86_64.tar.gz
+            artifact_name: trix-portable-linux-x86_64
             ext: ""
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: trix-portable-macos-x86_64.zip
+            artifact_name: trix-portable-macos-x86_64
             ext: ""
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: trix-portable-macos-aarch64.zip
+            artifact_name: trix-portable-macos-aarch64
             ext: ""
 
     steps:
@@ -102,39 +102,10 @@ jobs:
       - name: Build Rust binary
         run: cargo build --release --manifest-path src-rs/Cargo.toml --target ${{ matrix.target }}
 
-      # Packaging
-      - name: Package Windows Portable
-        if: matrix.os == 'windows-latest'
+      # Packaging standalone binary
+      - name: Prepare standalone binary
         run: |
-          mkdir -p trix-portable-windows-x86_64
-          cp src-rs/target/x86_64-pc-windows-msvc/release/trix.exe trix-portable-windows-x86_64/
-          cp -r dist trix-portable-windows-x86_64/
-          echo "portable" > trix-portable-windows-x86_64/portable.txt
-          7z a ${{ matrix.artifact_name }} trix-portable-windows-x86_64
-        shell: bash
-
-      - name: Package Linux Portable
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          mkdir -p trix-portable-linux-x86_64
-          cp src-rs/target/x86_64-unknown-linux-gnu/release/trix trix-portable-linux-x86_64/
-          cp -r dist trix-portable-linux-x86_64/
-          echo "portable" > trix-portable-linux-x86_64/portable.txt
-          tar -czf ${{ matrix.artifact_name }} trix-portable-linux-x86_64
-        shell: bash
-
-      - name: Package macOS Portable
-        if: matrix.os == 'macos-latest'
-        run: |
-          FOLDER_NAME="trix-portable-macos-x86_64"
-          if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
-            FOLDER_NAME="trix-portable-macos-aarch64"
-          fi
-          mkdir -p $FOLDER_NAME
-          cp src-rs/target/${{ matrix.target }}/release/trix $FOLDER_NAME/
-          cp -r dist $FOLDER_NAME/
-          echo "portable" > $FOLDER_NAME/portable.txt
-          zip -r ${{ matrix.artifact_name }} $FOLDER_NAME
+          cp src-rs/target/${{ matrix.target }}/release/trix${{ matrix.ext }} ${{ matrix.artifact_name }}
         shell: bash
 
       - name: Upload to GitHub Release

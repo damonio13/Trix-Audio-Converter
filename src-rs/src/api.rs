@@ -27,7 +27,6 @@ use tokio::sync::RwLock;
 use tower::limit::ConcurrencyLimitLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::services::ServeDir;
 
 use crate::converter::AudioConverter;
 use crate::formats::{OUTPUT_FORMATS, SAMPLE_RATES, CHANNELS};
@@ -536,6 +535,44 @@ async fn csp_middleware(request: Request, next: middleware::Next) -> Response {
     response
 }
 
+#[derive(rust_embed::RustEmbed)]
+#[folder = "../dist/"]
+struct Asset;
+
+async fn static_handler(uri: axum::http::Uri) -> Response {
+    use axum::response::IntoResponse;
+    let path = uri.path().trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+
+    match Asset::get(path) {
+        Some(content) => {
+            let mime = if path.ends_with(".html") { "text/html" }
+            else if path.ends_with(".js") { "application/javascript" }
+            else if path.ends_with(".css") { "text/css" }
+            else if path.ends_with(".png") { "image/png" }
+            else if path.ends_with(".svg") { "image/svg+xml" }
+            else if path.ends_with(".json") { "application/json" }
+            else if path.ends_with(".ico") { "image/x-icon" }
+            else { "application/octet-stream" };
+
+            (
+                [(header::CONTENT_TYPE, mime)],
+                content.data.into_owned(),
+            ).into_response()
+        }
+        None => {
+            if let Some(content) = Asset::get("index.html") {
+                (
+                    [(header::CONTENT_TYPE, "text/html")],
+                    content.data.into_owned(),
+                ).into_response()
+            } else {
+                StatusCode::NOT_FOUND.into_response()
+            }
+        }
+    }
+}
+
 /// Starts the HTTP API server on an auto-assigned port.
 pub async fn serve() {
     serve_with_port(None).await;
@@ -567,37 +604,7 @@ pub async fn serve_with_port(converter: Option<Arc<AudioConverter>>) {
         rate_limiter: RwLock::new(RateLimiter::new()),
     });
 
-    let frontend_dir = {
-        // 1. Next to the executable (standard for portable releases)
-        let exe_dir = std::env::current_exe()
-            .ok()
-            .and_then(|p| p.parent().map(|parent| parent.to_path_buf()))
-            .unwrap_or_else(|| std::path::PathBuf::from("."));
-        let candidate_exe = exe_dir.join("dist");
-
-        // 2. Sibling to current directory (from src-rs/ in dev)
-        let candidate_sibling = std::env::current_dir().unwrap_or_default().join("..").join("dist");
-
-        // 3. Subfolder of current directory (from workspace root in dev)
-        let candidate_sub = std::env::current_dir().unwrap_or_default().join("dist");
-
-        // 4. Target release build relative path (3 levels up from src-rs/target/release/)
-        let candidate_target = exe_dir.join("..").join("..").join("..").join("dist");
-
-        let resolved = if candidate_exe.join("index.html").exists() {
-            candidate_exe
-        } else if candidate_sibling.join("index.html").exists() {
-            candidate_sibling
-        } else if candidate_sub.join("index.html").exists() {
-            candidate_sub
-        } else if candidate_target.join("index.html").exists() {
-            candidate_target
-        } else {
-            candidate_exe
-        };
-        eprintln!("[Trix] Servindo frontend a partir de: {:?}", resolved);
-        resolved
-    };
+    // Servindo frontend embutido diretamente da memoria.
 
     let api_routes = Router::new()
         // Core
@@ -641,7 +648,7 @@ pub async fn serve_with_port(converter: Option<Arc<AudioConverter>>) {
     let app = Router::new()
         .nest("/api", api_routes)
         .nest("/api", health_route)
-        .fallback_service(ServeDir::new(&frontend_dir))
+        .fallback(static_handler)
         .layer(middleware::from_fn(csp_middleware))
         .layer(ConcurrencyLimitLayer::new(32))
         .layer(RequestBodyLimitLayer::new(10 * 1024 * 1024))
