@@ -568,20 +568,35 @@ pub async fn serve_with_port(converter: Option<Arc<AudioConverter>>) {
     });
 
     let frontend_dir = {
-        let candidate = std::env::current_dir().unwrap_or_default().join("..").join("dist");
-        if candidate.join("index.html").exists() {
-            candidate
+        // 1. Next to the executable (standard for portable releases)
+        let exe_dir = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|parent| parent.to_path_buf()))
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+        let candidate_exe = exe_dir.join("dist");
+
+        // 2. Sibling to current directory (from src-rs/ in dev)
+        let candidate_sibling = std::env::current_dir().unwrap_or_default().join("..").join("dist");
+
+        // 3. Subfolder of current directory (from workspace root in dev)
+        let candidate_sub = std::env::current_dir().unwrap_or_default().join("dist");
+
+        // 4. Target release build relative path (3 levels up from src-rs/target/release/)
+        let candidate_target = exe_dir.join("..").join("..").join("..").join("dist");
+
+        let resolved = if candidate_exe.join("index.html").exists() {
+            candidate_exe
+        } else if candidate_sibling.join("index.html").exists() {
+            candidate_sibling
+        } else if candidate_sub.join("index.html").exists() {
+            candidate_sub
+        } else if candidate_target.join("index.html").exists() {
+            candidate_target
         } else {
-            let candidate2 = std::env::current_dir().unwrap_or_default().join("dist");
-            if candidate2.join("index.html").exists() {
-                candidate2
-            } else {
-                std::env::current_exe()
-                    .unwrap_or_default()
-                    .parent().unwrap_or(std::path::Path::new("."))
-                    .join("..").join("..").join("..").join("..").join("dist")
-            }
-        }
+            candidate_exe
+        };
+        eprintln!("[Trix] Servindo frontend a partir de: {:?}", resolved);
+        resolved
     };
 
     let api_routes = Router::new()

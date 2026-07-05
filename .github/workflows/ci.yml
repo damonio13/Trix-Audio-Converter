@@ -31,7 +31,7 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          src-rs/target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Install dependencies (Ubuntu)
@@ -77,6 +77,8 @@ jobs:
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ matrix.target }}
     
     - name: Cache cargo
       uses: actions/cache@v4
@@ -84,7 +86,7 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
-          target
+          src-rs/target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     
     - name: Install dependencies (Ubuntu)
